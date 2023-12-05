@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs, str::FromStr, sync::{Mutex, Arc}};
+use std::{fs, str::FromStr, sync::{Mutex, Arc}};
 
 #[derive(Debug, PartialEq, Eq)]
 struct ParseError;
