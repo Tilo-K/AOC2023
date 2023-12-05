@@ -1,8 +1,8 @@
-use std::{fs, str::FromStr};
+use std::{collections::HashSet, fs, str::FromStr, sync::{Mutex, Arc}};
 
 #[derive(Debug, PartialEq, Eq)]
 struct ParseError;
-
+#[derive(Debug, Clone)]
 struct Range {
     dest_range_start: u64,
     src_range_start: u64,
@@ -35,6 +35,7 @@ impl Range {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Map {
     ranges: Vec<Range>,
 }
@@ -94,10 +95,69 @@ fn part_a(blocks: &Vec<&str>) {
     println!("Part A: {}", min_loc);
 }
 
+struct MinLoc {
+    num: u64,
+}
+
+fn part_b(blocks: &Vec<&str>) {
+    let (_, seed_num_str) = blocks[0].split_once(":").expect("Unable to split seeds");
+
+    let seeds = seed_num_str
+        .trim()
+        .split(" ")
+        .map(|s| s.parse::<u64>().unwrap())
+        .collect::<Vec<u64>>();
+
+    let orig_maps = blocks[1..]
+        .iter()
+        .map(|b| b.parse::<Map>().unwrap())
+        .collect::<Vec<Map>>();
+
+    let min_lock = Arc::new(Mutex::new(MinLoc { num: u64::MAX }));
+    let mut handles = vec![];
+
+    for i in (0..seeds.len()).step_by(2) {
+        let start = seeds[i];
+        let length = seeds[i + 1].clone();
+        let maps = orig_maps.clone();
+        let min_loc = Arc::clone(&min_lock);
+
+        let handle = std::thread::spawn(move || {
+            let mut min = u64::MAX;
+
+            for j in start..start + length {
+                let mut num = j;
+                for map in &maps {
+                    num = map.translate_num(num);
+                }
+
+                if num < min {
+                    min = num;
+                }
+            }
+
+            let mut min_loc = min_loc.lock().unwrap();
+            if min < min_loc.num {
+                min_loc.num = min;
+            }
+            println!("Finished {} to {}", start, start + length);
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    println!("Part B: {}", min_lock.lock().unwrap().num);
+}
+
 fn main() {
     let data = fs::read_to_string("input.txt")
         .expect("Unable to read file")
         .replace("\r", "");
     let blocks = data.split("\n\n").collect::<Vec<&str>>();
     part_a(&blocks);
+    part_b(&blocks);
 }
